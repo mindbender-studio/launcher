@@ -1,0 +1,147 @@
+
+
+* {
+	outline: none;
+	color: #ddd;
+
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+
+QWidget {
+	background: #444;
+	border: none;
+}
+
+QWidget:!active {
+	color: #bbb;
+}
+
+QPushButton {
+	background: #555;
+	border: 1px outset #333;
+	padding: 5px;
+}
+
+QTabWidget::pane  { /* The tab widget frame */
+    background: #333;
+}
+
+QTabWidget::tab-bar {
+    border: none;
+    left: 5px; /* move to the right by 5px */
+}
+
+QTabBar {
+	border: none;
+}
+
+QTabBar::tab {
+    background: #555;
+    border: 1px solid #222;
+    min-width: 11ex;
+    padding: 6px;
+}
+
+QTabBar::tab:selected, QTabBar::tab:hover {
+    background: transparent;
+}
+
+QTabBar::tab:selected {
+    border-color: steelblue;
+}
+
+QTabBar::tab:!selected {
+    margin-top: 2px; /* make non-selected tabs look smaller */
+}
+
+QListView {
+	padding: 1px;
+}
+
+QListView::item {
+	background: #444;
+	border: 1px outset #333;
+	padding: 5px;
+	top: 1px;
+}
+
+QListView::item:hover {
+	background: #476F13;
+}
+
+QListView::item:selected {
+	background: #222;
+}
+
+QListView {
+	border: 0px;
+	background: "transparent"
+}
+
+QPushButton:pressed {
+	background: "#777";
+}
+
+QPushButton:hover {
+	color: white;
+	background: "#666";
+}
+
+QPushButton:disabled {
+	color: rgba(255, 255, 255, 50);
+}
+
+QTextEdit, QLineEdit {
+	background: "#555";
+	border: 1px solid "#333";
+	font-size: 9pt;
+	color: "#fff";
+}
+
+QCheckBox {
+	min-width: 17px;
+	max-width: 17px;
+	border: 1px solid #222;
+	background: transparent;
+}
+
+QCheckBox::indicator {
+	width: 15px;
+	height: 15px;
+	/*background: #444;*/
+	background: transparent;
+	border: 1px solid #555;
+}
+
+QCheckBox::indicator:checked {
+	background: #222;
+}
+
+QScrollBar:vertical {
+ 	border: none;
+ 	background: transparent;
+ 	width: 6px;
+ 	margin: 0;
+}
+
+QScrollBar::handle:vertical {
+ 	background: #333;
+ 	border-radius: 3px;
+ 	min-height: 20px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+ 	height: 0px;
+}
+
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+ 	border: 1px solid #444;
+ 	width: 3px;
+ 	height: 3px;
+ 	background: white;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+ 	background: none;
+}
