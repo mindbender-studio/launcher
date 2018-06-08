@@ -539,14 +539,25 @@ class Controller(QtCore.QObject):
         api.Session["AVALON_TASK"] = name
 
         frame = self.current_frame()
-        self._model.push([
-            dict({
-                "icon": DEFAULTS["icon"]["app"]
-            }, **app)
-            for app in sorted(
-                frame["config"].get("apps", []),
-                key=lambda a: a["name"])
-        ])
+
+        applications_data = []
+        sorted_apps = sorted(
+            frame["config"].get("apps", []), key=lambda a: a["name"]
+        )
+        for app in sorted_apps:
+            data = {"icon": DEFAULTS["icon"]["app"]}
+
+            # Default label from application toml
+            application_definition = lib.which_app(app["name"])
+            with open(application_definition) as f:
+                data["label"] = toml.load(f)["label"]
+
+            # Overrides in config
+            data.update(app)
+
+            applications_data.append(data)
+
+        self._model.push(applications_data)
 
         frame["environment"]["task"] = name
 
