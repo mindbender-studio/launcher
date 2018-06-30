@@ -521,13 +521,17 @@ class Controller(QtCore.QObject):
             "asset_%s" % key: value
             for key, value in asset["data"].items()
         })
-
+        tasks = frame["config"].get("tasks", [])
+        if "asset_tasks" in frame["environment"]:
+            tasks = []
+            for task in frame["environment"]["asset_tasks"]:
+                tasks.append({"name": task})
         self._model.push([
             dict({
                 "icon": DEFAULTS["icon"]["task"]
             }, **task)
             for task in sorted(
-                frame["config"].get("tasks", []),
+                tasks,
                 key=lambda t: t["name"])
         ])
 
