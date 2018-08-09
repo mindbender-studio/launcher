@@ -401,7 +401,10 @@ class Controller(QtCore.QObject):
             if "icon" not in task:
                 task['icon'] = DEFAULTS['icon']['task']
 
-        sorted_tasks = sorted(tasks, key=lambda t: t["name"])
+        sorted_tasks = []
+        for task in sorted(tasks, key=lambda t: t["name"]):
+            task["group"] = "Tasks"
+            sorted_tasks.append(task)
 
         frame["tasks"] = [task["name"] for task in sorted_tasks]
 
