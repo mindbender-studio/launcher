@@ -186,7 +186,6 @@ class Controller(QtCore.QObject):
     @Slot(QtCore.QModelIndex)
     def push(self, index):
         name = model.data(index, "name")
-        self.breadcrumbs.append(name)
 
         frame = self.current_frame()
 
@@ -197,11 +196,13 @@ class Controller(QtCore.QObject):
                 "project": self.on_silo_changed,
                 "silo": self.on_asset_changed,
                 "asset": self.on_asset_changed
-            }[self.current_frame()["type"]]
+            }[frame["type"]]
             if "tasks" in frame and name in frame["tasks"]:
                 handler = self.on_task_changed
 
         handler(index)
+
+        self.breadcrumbs.append(self.current_frame()["data"]["label"])
 
         # Push the compatible applications
         actions = self.collect_compatible_actions(self._registered_actions)
@@ -276,12 +277,9 @@ class Controller(QtCore.QObject):
         # Establish a connection to the project database
         self.log("Connecting to %s" % name, level=INFO)
 
-        frame = self.current_frame()
         project = io.find_one({"type": "project"})
 
         assert project is not None, "This is a bug"
-
-        frame["config"] = project["config"]
 
         # Get available project actions and the application actions
         actions = api.discover(api.Action)
@@ -297,13 +295,13 @@ class Controller(QtCore.QObject):
             for silo in sorted(silos)
         ])
 
+        frame = project
         frame["project"] = project["_id"]
         frame["environment"] = {"project": name}
         frame["environment"].update({
             "project_%s" % key: str(value)
             for key, value in project["data"].items()
         })
-        frame["type"] = "project"
 
         self._frames.append(frame)
         self.pushed.emit(name)
@@ -357,6 +355,7 @@ class Controller(QtCore.QObject):
         self._model.push(valid_docs)
 
         frame["environment"]["silo"] = name
+        frame["data"]["label"] = name
         frame["type"] = "silo"
 
         self._frames.append(frame)
@@ -374,11 +373,11 @@ class Controller(QtCore.QObject):
         # TODO(marcus): These are going to be accessible
         # from database, not from the environment.
         asset = io.find_one({"_id": frame["asset"]})
+        frame.update(asset)
         frame["environment"].update({
             "asset_%s" % key: value
             for key, value in asset["data"].items()
         })
-        frame["type"] = "asset"
 
         # Get tasks from the project's configuration
         project_tasks = [task for task in frame["config"].get("tasks", [])]
@@ -438,6 +437,7 @@ class Controller(QtCore.QObject):
         self._model.push([])
 
         frame["environment"]["task"] = name
+        frame["data"]["label"] = name
         frame["type"] = "task"
 
         self._frames.append(frame)
