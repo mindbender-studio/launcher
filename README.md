@@ -8,4 +8,4 @@ The Launcher provides an interface towards the file-system and environment.
 
 Environment Variable | Description
 --- | ---
-```AVALON_ACTIONS``` | Paths to action plugins.
+```AVALON_ACTIONS``` | Paths to action plugins. Will run "register" method in python scripts, if found.

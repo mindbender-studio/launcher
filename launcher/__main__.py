@@ -3,31 +3,66 @@
 import os
 import sys
 import argparse
-import PyQt5
+import importlib
 
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 
 
 def cli():
-    # External Dependencies
-    missing = list()
-    dependencies = (
-        "PYBLISH_BASE",
-        "PYBLISH_QML",
-        "AVALON_CONFIG",
-        "AVALON_PROJECTS",
-        "AVALON_CORE",
-    )
-
-    for dependency in dependencies:
+    # Check environment dependencies
+    missing = []
+    for dependency in ["AVALON_CONFIG", "AVALON_PROJECTS"]:
         if dependency not in os.environ:
             missing.append(dependency)
-
     if missing:
         sys.stderr.write(
             "Incomplete environment, missing variables:\n%s"
             % "\n".join("- %s" % var for var in missing)
+        )
+
+        return EXIT_FAILURE
+
+    # Add deprecated environment variable dependencies
+    variables = [
+        "PYBLISH_BASE",
+        "PYBLISH_QML",
+        "AVALON_CORE",
+    ]
+
+    os.environ["PYTHONPATH"] = os.pathsep.join(
+        os.environ.get("PYTHONPATH", "").split(os.pathsep) +
+        [os.getenv(variable, "") for variable in variables]
+    )
+
+    sys.path.extend(os.environ["PYTHONPATH"].split(os.pathsep))
+
+    # Check modules dependencies
+    missing = list()
+    dependencies = {
+        "PyQt5": None,
+        "avalon": None,
+        os.environ["AVALON_CONFIG"]: None
+    }
+
+    for dependency in dependencies:
+        try:
+            dependencies[dependency] = importlib.import_module(dependency)
+        except ImportError as e:
+            missing.append([dependency, e])
+
+    if missing:
+        missing_formatted = []
+        for dep, error in missing:
+            missing_formatted.append(
+                "- \"{0}\"\n  Error: {1}".format(dep, error)
+            )
+
+        sys.stderr.write(
+            "Missing modules:\n{0}\nPlease check your PYTHONPATH:\n{1}".format(
+                "\n".join(missing_formatted),
+                os.environ["PYTHONPATH"]
+            )
         )
 
         return EXIT_FAILURE
@@ -38,24 +73,6 @@ def cli():
 
     kwargs = parser.parse_args()
 
-    # Take advantage of the fact that the Launcher requires a Python
-    # distribution with PyQt5 readily available.
-    for key, value in (("PYBLISH_QML_PYQT5", os.path.dirname(PyQt5.__file__)),
-                       ("PYBLISH_QML_PYTHON_EXECUTABLE", sys.executable)):
-
-        # But only if it hasn't already been set by the user, in which
-        # case we assume that is the desired one.
-        if key in os.environ:
-            continue
-
-        os.environ[key] = value
-
-    # Set PYTHONPATH
-    os.environ["PYTHONPATH"] = os.pathsep.join(
-        os.environ.get("PYTHONPATH", "").split(os.pathsep) +
-        [os.getenv(dependency) for dependency in dependencies]
-    )
-
     # Fulfill schema, and expect the application
     # to fill it in in due course.
     for placeholder in ("AVALON_PROJECT",
@@ -65,18 +82,21 @@ def cli():
                         "AVALON_APP",):
         os.environ[placeholder] = "placeholder"
 
-    # Expose dependencies to Launcher
-    sys.path[:] = [
-        os.getenv(dep) for dep in dependencies
-    ] + sys.path
-
     print("Using Python @ '%s'" % sys.executable)
-    print("Using PyQt5 @ '%s'" % os.environ["PYBLISH_QML_PYQT5"])
-    print("Using core @ '%s'" % os.getenv("AVALON_CORE"))
-    print("Using launcher @ '%s'" % os.getenv("AVALON_LAUNCHER"))
     print("Using root @ '%s'" % kwargs.root)
-    print("Using config: '%s'" % os.environ.get("AVALON_CONFIG",
-                                                "Set by project"))
+    print("Using config: '%s'" % os.environ["AVALON_CONFIG"])
+
+    dependencies["launcher"] = sys.modules[__name__]
+    for dependency, lib in dependencies.items():
+        print("Using {0} @ '{1}'".format(
+            dependency, os.path.dirname(lib.__file__))
+        )
+
+    # For maintaning backwards compatibility on toml applications where
+    # AVALON_CORE is used, we set the environment from the modules imported.
+    os.environ["AVALON_CORE"] = os.path.abspath(
+        os.path.join(dependencies["avalon"].__file__, "..", "..")
+    )
 
     from . import app
     return app.main(**kwargs.__dict__)
