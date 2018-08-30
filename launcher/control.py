@@ -306,6 +306,18 @@ class Controller(QtCore.QObject):
         self._frames.append(frame)
         self.pushed.emit(name)
 
+    def get_recursive_label(self, id, label):
+        for doc in self.docs:
+            if doc["_id"] == id:
+                label = "{0} / {1}".format(doc["data"]["label"], label)
+
+                if "visualParent" in doc["data"]:
+                    label = self.get_recursive_label(
+                        doc["data"]["visualParent"], label
+                    )
+
+        return label
+
     def on_silo_changed(self, index):
         name = model.data(index, "name")
         api.Session["AVALON_SILO"] = name
@@ -340,7 +352,6 @@ class Controller(QtCore.QObject):
             if not doc["data"].get("visible", True):
                 continue
 
-            # Only show assets without a visual parent.
             if "visualParent" not in doc["data"]:
                 valid_docs.append(
                     dict(
@@ -352,6 +363,21 @@ class Controller(QtCore.QObject):
                         **doc["data"]
                     )
                 )
+            else:
+                data = dict(
+                    {
+                        "_id": doc["_id"],
+                        "name": doc["name"],
+                        "icon": DEFAULTS["icon"]["asset"]
+                    },
+                    **doc["data"]
+                )
+                data["label"] = self.get_recursive_label(
+                    doc["data"]["visualParent"],
+                    doc["data"]["label"]
+                )
+                valid_docs.append(data)
+
         self._model.push(valid_docs)
 
         frame["environment"]["silo"] = name
