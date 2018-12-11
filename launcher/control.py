@@ -359,6 +359,8 @@ class Controller(QtCore.QObject):
         # TODO(marcus): These are going to be accessible
         # from database, not from the environment.
         asset = io.find_one({"_id": frame["asset"]})
+        api.Session["AVALON_HIERARCHY"] = asset["data"]["hierarchy"]
+
         frame["environment"].update({
             "asset_%s" % key: value
             for key, value in asset["data"].items()
