@@ -23,6 +23,17 @@ Flow {
 
             contentItem: ColumnLayout {
 
+                ImageAction {
+                    id: actionImage
+                    property int availableWidth: control.availableWidth
+
+                    name: model.icon
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: actiontext.top
+                }
+
                 AwesomeIcon {
                     id: actionIcon
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -33,6 +44,7 @@ Flow {
                 }
 
                 Text {
+                    id: actiontext
                     Layout.fillHeight: true
                     Layout.fillWidth: true
                     width: control.availableWidth
