@@ -14,6 +14,13 @@ class FormatDict(dict):
         return "{" + key + "}"
 
 
+def core_resource(*path):
+    import avalon
+    res_root = os.path.dirname(os.path.dirname(avalon.__file__))
+    path = os.path.join(res_root, "res", *path)
+    return path.replace("\\", "/")
+
+
 def resource(*path):
     path = os.path.join(self._path, "res", *path)
     return path.replace("\\", "/")

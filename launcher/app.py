@@ -6,14 +6,15 @@ import sys
 
 # Dependencies
 from avalon import io
-from PyQt5 import QtCore, QtGui, QtQml, QtWidgets, QtQuick
+from PyQt5 import QtCore, QtGui, QtQml, QtWidgets
 
 # Local libraries
 from . import control, terminal, lib
 
 QML_IMPORT_DIR = lib.resource("qml")
 APP_PATH = lib.resource("qml", "main.qml")
-ICON_PATH = lib.resource("icon", "main.png")
+ICON_PATH = lib.core_resource("icons", "png", "avalon-logo-16.png")
+SPLASH_PATH = lib.core_resource("icons", "png", "splash.png")
 
 # TODO: Re-implement icons of tray menu after resolving #323
 # Issue 323: https://github.com/getavalon/core/issues/323
@@ -25,10 +26,18 @@ class Application(QtWidgets.QApplication):
         super(Application, self).__init__(sys.argv)
         self.setWindowIcon(QtGui.QIcon(ICON_PATH))
 
+        pixmap = QtGui.QPixmap(SPLASH_PATH)
+        splash = QtWidgets.QSplashScreen(pixmap)
+        splash.show()
+        self._splash = splash
+
         engine = QtQml.QQmlApplicationEngine()
         engine.objectCreated.connect(self.on_object_created)
         engine.warnings.connect(self.on_warnings)
         engine.addImportPath(QML_IMPORT_DIR)
+
+        self._splash.showMessage("Connecting database...",
+                                 QtCore.Qt.AlignBottom, QtCore.Qt.black)
 
         try:
             io.install()
@@ -38,6 +47,9 @@ class Application(QtWidgets.QApplication):
         # Install actions
         from . import install
         install()
+
+        self._splash.showMessage("Starting Avalon Launcher...",
+                                 QtCore.Qt.AlignBottom, QtCore.Qt.black)
 
         terminal.init()
 
@@ -62,6 +74,7 @@ class Application(QtWidgets.QApplication):
         else:
             self.window = object
             self.init_tray()
+            self._splash.close()
 
             self.controller.init()
             print("Success")
