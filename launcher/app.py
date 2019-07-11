@@ -52,13 +52,11 @@ class Application(QtWidgets.QApplication):
                                  QtCore.Qt.AlignBottom, QtCore.Qt.black)
 
         terminal.init()
-        app_root = os.path.dirname(__file__).replace('\\', '/')
-        res_path = "file:///{}/res/".format(app_root)
 
         controller = control.Controller(root, self)
         engine.rootContext().setContextProperty("controller", controller)
         engine.rootContext().setContextProperty("terminal", terminal.model)
-        engine.rootContext().setContextProperty("res_path", res_path)
+        engine.rootContext().setContextProperty("res_path", lib.resource())
 
         self._tray = None
         self.window = None
