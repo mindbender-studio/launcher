@@ -15,7 +15,7 @@ Item {
                 name: "home"
                 size: 18
             }
-
+            background: Item { }  // Hide background
             height: parent.height
             width: parent.height
             onClicked: controller.pop(-1)

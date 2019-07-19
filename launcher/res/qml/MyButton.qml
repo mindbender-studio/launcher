@@ -5,7 +5,7 @@ import QtQuick.Controls 2.0
 Button {
     id: control
 
-    property var avalonicon: "adjust"
+    property var custom_icon: "adjust"
 
 	background: Rectangle {
         color: "transparent"
@@ -13,7 +13,7 @@ Button {
 
     AwesomeIcon {
         anchors.fill: parent
-        name: control.avalonicon
+        name: control.custom_icon
         opacity: !control.checkable ? 1.0 : control.checked ? 1.0 : 0.4
     }
 }

@@ -87,7 +87,7 @@ ApplicationWindow {
                     id: launchExplorerButton
                     implicitWidth: parent.height
                     implicitHeight: parent.height
-                    avalonicon: "folder-open"
+                    custom_icon: "folder-open"
                     Layout.alignment: Qt.AlignLeft
 
                     onClicked: controller.launch_explorer()
@@ -99,7 +99,7 @@ ApplicationWindow {
                  */
                 MyButton {
                     id: terminalButton
-                    avalonicon: "terminal"
+                    custom_icon: "terminal"
                     checkable: true
                     implicitHeight: parent.height
                     implicitWidth: parent.height
@@ -115,7 +115,7 @@ ApplicationWindow {
                     implicitWidth: parent.height
                     implicitHeight: parent.height
                     checkable: true
-                    avalonicon: "adjust"
+                    custom_icon: "adjust"
                     Layout.alignment: Qt.AlignRight
                 }
             }
