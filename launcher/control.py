@@ -375,15 +375,11 @@ class Controller(QtCore.QObject):
         # Get the tasks assigned to the asset
         asset_tasks = asset.get("data", {}).get("tasks", None)
         if asset_tasks is not None:
-            # If the task is in the project configuration than get the settings
+            # If the task is in the project configuration then get the settings
             # from the project config to also support its icons, etc.
             task_config = {task['name']: task for task in project_tasks}
             tasks = [task_config.get(task_name, {"name": task_name})
                      for task_name in asset_tasks]
-        else:
-            # if no `asset.data['tasks']` override then
-            # get the tasks from project configuration
-            tasks = project_tasks
 
         # If task has no icon use fallback icon
         for task in tasks:
