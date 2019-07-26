@@ -374,6 +374,7 @@ class Controller(QtCore.QObject):
 
         # Get the tasks assigned to the asset
         asset_tasks = asset.get("data", {}).get("tasks", None)
+        tasks = []
         if asset_tasks is not None:
             # If the task is in the project configuration then get the settings
             # from the project config to also support its icons, etc.
