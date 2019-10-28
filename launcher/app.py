@@ -56,6 +56,7 @@ class Application(QtWidgets.QApplication):
         controller = control.Controller(root, self)
         engine.rootContext().setContextProperty("controller", controller)
         engine.rootContext().setContextProperty("terminal", terminal.model)
+        engine.rootContext().setContextProperty("res_path", lib.resource())
 
         self._tray = None
         self.window = None
