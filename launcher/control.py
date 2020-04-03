@@ -9,7 +9,6 @@ from PyQt5 import QtCore
 from avalon import api, io
 from avalon.vendor import six
 from . import lib, model, terminal
-from . import _SESSION_STEPS, _PLACEHOLDER
 
 PY2 = sys.version_info[0] == 2
 
@@ -74,6 +73,7 @@ class Controller(QtCore.QObject):
             roles=[
                 "_id",
                 "name",
+                "type",
                 "label",
                 "icon",
                 "group"
@@ -111,18 +111,26 @@ class Controller(QtCore.QObject):
 
         print("Opening Explorer")
 
-        # Get the current environment
         frame = self.current_frame()
-        frame["environment"]["root"] = self._root
 
         # When we are outside of any project, do nothing
         config = frame.get("config", None)
         if config is None:
             print("No project found in configuration")
-            return
 
-        template = config['template']['work']
-        path = lib.partial_format(template, frame["environment"])
+        # Get the current environment
+        if 'environment' in frame:
+            frame["environment"]["root"] = self._root
+            if frame.get('type') in ['asset', 'task']:
+                hierarchy = frame['data'].get('hierarchy', None)
+                if hierarchy is not None:
+                    frame['environment']['hierarchy'] = hierarchy
+            if frame.get('type') == 'task':
+                frame['environment']['task'] = frame['name']
+            template = config['template']['work']
+            path = lib.partial_format(template, frame["environment"])
+        else:
+            path = self._root
 
         # Keep only the part of the path that was formatted
         path = os.path.normpath(path.split("{", 1)[0])
@@ -187,17 +195,23 @@ class Controller(QtCore.QObject):
     @Slot(QtCore.QModelIndex)
     def push(self, index):
         name = model.data(index, "name")
-        self.breadcrumbs.append(name)
 
-        level = len(self.breadcrumbs)
-        handler = {
-            1: self.on_project_changed,
-            2: self.on_silo_changed,
-            3: self.on_asset_changed,
-            4: self.on_task_changed
-        }[level]
+        frame = self.current_frame()
+
+        # If nothing is set as current frame we are at selecting projects
+        handler = self.on_project_changed
+        if frame:
+            handler = {
+                "project": self.on_asset_changed,
+                "silo": self.on_asset_changed,
+                "asset": self.on_asset_changed
+            }[frame["type"]]
+            if "tasks" in frame and name in frame["tasks"]:
+                handler = self.on_task_changed
 
         handler(index)
+
+        self.breadcrumbs.append(self.current_frame()["name"])
 
         # Push the compatible applications
         actions = self.collect_compatible_actions(self._registered_actions)
@@ -219,9 +233,12 @@ class Controller(QtCore.QObject):
             steps = len(self.breadcrumbs) - index - 1
 
         for i in range(steps):
-            self._frames.pop()
-            self._model.pop()
-            self._actions.pop()
+            try:
+                self._frames.pop()
+                self._model.pop()
+                self._actions.pop()
+            except IndexError:
+                pass
 
             if not self.breadcrumbs:
                 self.popped.emit()
@@ -236,10 +253,6 @@ class Controller(QtCore.QObject):
                 self.popped.emit()
                 self.navigated.emit()
 
-            # Revert to placeholder
-            step = _SESSION_STEPS[len(self.breadcrumbs)]
-            api.Session[step] = _PLACEHOLDER
-
     def init(self):
         terminal.log("initialising..")
         header = "Root"
@@ -248,14 +261,12 @@ class Controller(QtCore.QObject):
             dict({
                 "_id": project["_id"],
                 "icon": DEFAULTS["icon"]["project"],
+                "type": project["type"],
                 "name": project["name"],
             }, **project["data"])
             for project in sorted(io.projects(), key=lambda x: x['name'])
             if project["data"].get("visible", True)  # Discard hidden projects
         ])
-
-        frame = {"environment": {}}
-        self._frames[:] = [frame]
 
         # Discover all registered actions
         discovered_actions = api.discover(api.Action)
@@ -276,27 +287,44 @@ class Controller(QtCore.QObject):
         # Establish a connection to the project database
         self.log("Connecting to %s" % name, level=INFO)
 
-        frame = self.current_frame()
         project = io.find_one({"type": "project"})
 
         assert project is not None, "This is a bug"
-
-        frame["config"] = project["config"]
 
         # Get available project actions and the application actions
         actions = api.discover(api.Action)
         apps = lib.get_apps(project)
         self._registered_actions[:] = actions + apps
 
-        silos = io.distinct("silo")
-        self._model.push([
-            dict({
-                "name": silo,
-                "icon": DEFAULTS["icon"]["silo"],
-            })
-            for silo in sorted(silos)
-        ])
+        db_assets = io.find({"type": "asset"})
+        # Backwadrs compatbility with silo
+        silos = db_assets.distinct("silo")
+        if silos and None in silos:
+            silos = None
 
+        if not silos:
+            assets = list()
+            for asset in db_assets.sort("name", 1):
+                # _not_set_ is for cases when visualParent is not used
+                vis_p = asset.get("data", {}).get("visualParent", "_not_set_")
+                if vis_p is None:
+                    assets.append(asset)
+                elif vis_p == "_not_set_":
+                    assets.append(asset)
+
+            self._model.push([dict({
+                "_id": asset["_id"],
+                "name": asset["name"],
+                "type": asset["type"],
+                "icon": DEFAULTS["icon"]["asset"]
+            }) for asset in assets])
+
+        else:
+            self._model.push([dict({
+                "name": silo, "icon": DEFAULTS["icon"]["silo"], "type": "silo"
+            }) for silo in sorted(silos)])
+
+        frame = project
         frame["project"] = project["_id"]
         frame["environment"]["project"] = name
         frame["environment"].update({
@@ -313,47 +341,69 @@ class Controller(QtCore.QObject):
 
         frame = self.current_frame()
 
-        self._model.push([
-            dict({
+        self.docs = sorted(
+            io.find({
+                "type": "asset",
+                "parent": frame["project"],
+                "silo": name
+            }),
+            # Hard-sort by group
+            # TODO(marcus): Sorting should really happen in
+            # the model, via e.g. a Proxy.
+            key=lambda item: (
+                # Sort by group
+                item["data"].get(
+                    "group",
+
+                    # Put items without a
+                    # group at the top
+                    "0"),
+
+                # Sort inner items by name
+                item["name"]
+            )
+        )
+        valid_docs = []
+        for doc in self.docs:
+            # Discard hidden items
+            if not doc["data"].get("visible", True):
+                continue
+
+            data = {
                 "_id": doc["_id"],
                 "name": doc["name"],
-                "icon": DEFAULTS["icon"]["asset"],
-            }, **doc["data"])
-            for doc in sorted(
-                io.find({
-                    "type": "asset",
-                    "parent": frame["project"],
-                    "silo": name
-                }),
+                "icon": DEFAULTS["icon"]["asset"]
+            }
+            data.update(doc["data"])
 
-                # Hard-sort by group
-                # TODO(marcus): Sorting should really happen in
-                # the model, via e.g. a Proxy.
-                key=lambda item: (
-                    # Sort by group
-                    item["data"].get(
-                        "group",
+            if "visualParent" in doc["data"]:
+                vis_par = doc["data"]["visualParent"]
+                if vis_par is not None:
+                    continue
 
-                        # Put items without a
-                        # group at the top
-                        "0"),
-
-                    # Sort inner items by name
-                    item["name"]
-                )
-            )
-
-            # Discard hidden items
-            if doc["data"].get("visible", True)
-        ])
+            if "label" not in data:
+                data["label"] = doc["name"]
+            valid_docs.append(data)
 
         frame["environment"]["silo"] = name
+        frame["name"] = name
+        frame["type"] = "silo"
 
         self._frames.append(frame)
+        self._model.push(valid_docs)
         self.pushed.emit(name)
 
     def on_asset_changed(self, index):
+        # Backwards compatible way
+        _type = model.data(index, "type")
+        if _type == "silo":
+            return self.on_silo_changed(index)
+
         name = model.data(index, "name")
+        entity = io.find_one({
+            "type": "asset",
+            "name": name
+        })
         api.Session["AVALON_ASSET"] = name
 
         frame = self.current_frame()
@@ -361,9 +411,38 @@ class Controller(QtCore.QObject):
         frame["asset"] = model.data(index, "_id")
         frame["environment"]["asset"] = name
 
+        if entity.get("silo") is None:
+            api.Session["AVALON_SILO"] = name
+            frame["environment"]["silo"] = name
+            frame["asset"] = entity["_id"]
+
+        if 'visualParent' in entity['data']:
+            docs = io.find({
+                    "type": "asset",
+                    "data.visualParent": entity["_id"]
+                })
+        else:
+            docs = io.find({
+                "type": "asset",
+                "silo": api.Session["AVALON_SILO"]
+            })
+        self.docs = sorted(
+            docs,
+            key=lambda item: (
+                # Sort by group - Put items without a group at the top
+                item["data"].get("group", "0"),
+                # Sort inner items by name
+                item["name"]
+            )
+        )
         # TODO(marcus): These are going to be accessible
         # from database, not from the environment.
         asset = io.find_one({"_id": frame["asset"]})
+        if "parents" in asset["data"]:
+            api.Session["AVALON_HIERARCHY"] = "/".join(
+                asset["data"]["parents"]
+            )
+        frame.update(asset)
         frame["environment"].update({
             "asset_%s" % key: value
             for key, value in asset["data"].items()
@@ -390,7 +469,44 @@ class Controller(QtCore.QObject):
             if "icon" not in task:
                 task['icon'] = DEFAULTS['icon']['task']
 
-        self._model.push(sorted(tasks, key=lambda t: t["name"]))
+        sorted_tasks = []
+        for task in sorted(tasks, key=lambda t: t["name"]):
+            task["group"] = "Tasks"
+            sorted_tasks.append(task)
+
+        frame["tasks"] = [task["name"] for task in sorted_tasks]
+
+        valid_docs = []
+        for doc in self.docs:
+            if "visualParent" not in doc["data"]:
+                continue
+
+            if entity.get("silo") is None and doc["data"]["visualParent"] is None:
+                valid_docs.append(
+                    dict(
+                        {
+                            "_id": doc["_id"],
+                            "name": doc["name"],
+                            "type": doc["type"],
+                            "icon": DEFAULTS["icon"]["asset"]
+                        },
+                        **doc["data"]
+                    )
+                )
+            elif doc["data"]["visualParent"] == asset["_id"]:
+                valid_docs.append(
+                    dict(
+                        {
+                            "_id": doc["_id"],
+                            "name": doc["name"],
+                            "type": doc["type"],
+                            "icon": DEFAULTS["icon"]["asset"]
+                        },
+                        **doc["data"]
+                    )
+                )
+
+        self._model.push(valid_docs + sorted_tasks)
 
         self._frames.append(frame)
         self.pushed.emit(name)
@@ -400,11 +516,12 @@ class Controller(QtCore.QObject):
         api.Session["AVALON_TASK"] = name
 
         frame = self.current_frame()
-        self._model.push([])
-
         frame["environment"]["task"] = name
+        frame["name"] = name
+        frame["type"] = "task"
 
         self._frames.append(frame)
+        self._model.push([])
         self.pushed.emit(name)
 
     @Slot(QtCore.QModelIndex)
