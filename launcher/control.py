@@ -324,7 +324,10 @@ class Controller(QtCore.QObject):
                 "name": silo, "icon": DEFAULTS["icon"]["silo"], "type": "silo"
             }) for silo in sorted(silos)])
 
-        frame = project
+        frame = self.current_frame()
+        frame["name"] = project["name"]
+        frame["type"] = project["type"]
+        frame["config"] = project["config"]
         frame["project"] = project["_id"]
         frame["environment"]["project"] = name
         frame["environment"].update({
