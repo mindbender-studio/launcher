@@ -200,7 +200,7 @@ class Controller(QtCore.QObject):
 
         # If nothing is set as current frame we are at selecting projects
         handler = self.on_project_changed
-        if frame:
+        if frame and frame.get("type"):
             handler = {
                 "project": self.on_asset_changed,
                 "silo": self.on_asset_changed,
