@@ -254,6 +254,9 @@ class Controller(QtCore.QObject):
                 self.navigated.emit()
 
     def init(self):
+        frame = {"environment": {}}
+        self._frames[:] = [frame]
+
         terminal.log("initialising..")
         header = "Root"
 
